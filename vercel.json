@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://YOUR-RENDER-API.onrender.com/api/:path*"
+    }
+  ],
+  "comment": "The rewrite proxies /api to the Render backend so the frontend and API are same-origin in the browser (keeps refresh cookies simple). Replace the destination host. Alternatively drop the rewrite and set VITE_API_BASE to the API URL at build time, relying on CORS + SameSite=None cookies."
+}

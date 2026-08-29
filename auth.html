@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Buddyy — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['DM Sans', 'sans-serif'],
+          display: ['Space Grotesk', 'sans-serif'],
+        },
+        colors: {
+          bg: '#F6F5FB', surface: '#FFFFFF', surface2: '#F1EEF9', border: '#E5E1F0',
+          primary: '#7C3AED', secondary: '#6366F1', accent: '#DB2777',
+          fg: '#211E33', muted: '#6E6A85',
+          success: '#059669', warn: '#D97706', danger: '#DC2626',
+        },
+      },
+    },
+  };
+</script>
+</head>
+<body class="font-sans text-fg antialiased">
+
+<div class="min-h-screen grid lg:grid-cols-2">
+
+  <!-- ============ LEFT: BRAND SHOWCASE ============ -->
+  <aside class="relative hidden lg:flex flex-col justify-between overflow-hidden aura border-r border-border p-10 xl:p-14">
+    <div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 pointer-events-none"></div>
+
+    <!-- logo -->
+    <a href="/" class="relative flex items-center gap-2.5 w-fit">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-lg shadow-primary/30">
+        <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="font-display font-700 text-xl tracking-tight">Buddyy</span>
+    </a>
+
+    <!-- centerpiece -->
+    <div class="relative">
+      <!-- avatar orb -->
+      <div class="relative w-28 h-28 mb-9">
+        <span class="ring-pulse absolute inset-0 rounded-full border border-primary/40"></span>
+        <span class="ring-pulse d2 absolute inset-0 rounded-full border border-accent/30"></span>
+        <div class="relative w-28 h-28 rounded-full p-[3px] bg-gradient-to-br from-primary via-secondary to-accent shadow-2xl shadow-primary/40">
+          <div class="w-full h-full rounded-full bg-surface2 grid place-items-center">
+            <i data-lucide="bot" class="w-12 h-12 text-fg/80"></i>
+          </div>
+        </div>
+      </div>
+
+      <h1 class="font-display font-700 text-3xl xl:text-4xl leading-[1.15] max-w-md">
+        Your AI study partner that
+        <span class="bg-gradient-to-r from-secondary via-primary to-accent bg-clip-text text-transparent">sees, hears, and helps.</span>
+      </h1>
+      <p class="text-muted mt-4 max-w-md leading-relaxed">
+        Upload your lectures, books and notes — then learn out loud with a tutor that answers from your own sources and keeps you focused.
+      </p>
+
+      <ul class="mt-8 space-y-4 max-w-md">
+        <li class="flex items-start gap-3">
+          <span class="w-9 h-9 shrink-0 rounded-lg bg-surface2 border border-border grid place-items-center"><i data-lucide="messages-square" class="w-4 h-4 text-secondary"></i></span>
+          <div><p class="text-sm font-600">Chat with your material</p><p class="text-xs text-muted">Grounded answers with citations from your files.</p></div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-9 h-9 shrink-0 rounded-lg bg-surface2 border border-border grid place-items-center"><i data-lucide="mic" class="w-4 h-4 text-primary"></i></span>
+          <div><p class="text-sm font-600">A face that explains out loud</p><p class="text-xs text-muted">A talking avatar walks you through concepts.</p></div>
+        </li>
+        <li class="flex items-start gap-3">
+          <span class="w-9 h-9 shrink-0 rounded-lg bg-surface2 border border-border grid place-items-center"><i data-lucide="target" class="w-4 h-4 text-accent"></i></span>
+          <div><p class="text-sm font-600">Keeps you on track</p><p class="text-xs text-muted">Gentle nudges when your focus drifts.</p></div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- trust cue -->
+    <div class="relative flex items-center gap-2 text-xs text-muted">
+      <i data-lucide="shield-check" class="w-4 h-4 text-success"></i>
+      Private by design — can run entirely on your machine.
+    </div>
+  </aside>
+
+  <!-- ============ RIGHT: FORM ============ -->
+  <main class="flex items-center justify-center p-6 sm:p-10">
+    <div class="w-full max-w-sm">
+
+      <!-- compact logo (mobile) -->
+      <a href="/" class="lg:hidden flex items-center justify-center gap-2 mb-8">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-lg shadow-primary/30">
+          <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+        </div>
+        <span class="font-display font-700 text-xl tracking-tight">Buddyy</span>
+      </a>
+
+      <!-- Tabs -->
+      <div id="tabs" class="grid grid-cols-2 gap-1 p-1 mb-6 rounded-xl bg-surface2 border border-border">
+        <button id="tabLogin" data-mode="login" class="tab py-2 rounded-lg text-sm font-600 transition-colors">Sign in</button>
+        <button id="tabRegister" data-mode="register" class="tab py-2 rounded-lg text-sm font-600 transition-colors">Create account</button>
+      </div>
+
+      <!-- Alert -->
+      <div id="alert" aria-live="polite" class="hidden text-sm rounded-lg px-3 py-2.5 mb-4"></div>
+
+      <!-- LOGIN -->
+      <form id="loginForm" class="space-y-4" novalidate>
+        <div>
+          <h2 class="font-display font-600 text-xl">Welcome back</h2>
+          <p class="text-sm text-muted mt-1">Sign in to keep studying.</p>
+        </div>
+        <div>
+          <label for="loginEmail" class="block text-xs font-500 text-muted mb-1.5">Email</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="loginEmail" name="email" type="email" autocomplete="email" required
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="you@university.edu" />
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="loginPassword" class="block text-xs font-500 text-muted">Password</label>
+            <button type="button" data-goto="forgot" class="text-xs text-primary hover:underline">Forgot?</button>
+          </div>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" required
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="••••••••••••" />
+            <button type="button" class="pw-toggle absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted hover:text-fg" data-target="loginPassword" aria-label="Show password"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="submit-btn w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2">Sign in</button>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="registerForm" class="space-y-4 hidden" novalidate>
+        <div>
+          <h2 class="font-display font-600 text-xl">Create your account</h2>
+          <p class="text-sm text-muted mt-1">Start studying in under a minute.</p>
+        </div>
+        <div>
+          <label for="regName" class="block text-xs font-500 text-muted mb-1.5">Name</label>
+          <div class="relative">
+            <i data-lucide="user-round" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="regName" name="name" type="text" autocomplete="name"
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="Nazih El Hajj" />
+          </div>
+        </div>
+        <div>
+          <label for="regEmail" class="block text-xs font-500 text-muted mb-1.5">Email</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="regEmail" name="email" type="email" autocomplete="email" required
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="you@university.edu" />
+          </div>
+        </div>
+        <div>
+          <label for="regPassword" class="block text-xs font-500 text-muted mb-1.5">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="regPassword" name="password" type="password" autocomplete="new-password" required minlength="12"
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="At least 12 characters" aria-describedby="pwHint" />
+            <button type="button" class="pw-toggle absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted hover:text-fg" data-target="regPassword" aria-label="Show password"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          </div>
+          <div id="pwStrength" class="mt-2 hidden">
+            <div class="h-1 rounded-full bg-surface2 overflow-hidden"><div id="pwBar" class="h-full w-0 transition-all duration-300"></div></div>
+            <p id="pwHint" class="text-[11px] text-muted mt-1" aria-live="polite">At least 12 characters.</p>
+          </div>
+        </div>
+        <button type="submit" class="submit-btn w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2">Create account</button>
+      </form>
+
+      <!-- FORGOT PASSWORD -->
+      <form id="forgotForm" class="space-y-4 hidden" novalidate>
+        <div>
+          <h2 class="font-display font-600 text-xl">Reset your password</h2>
+          <p class="text-sm text-muted mt-1">Enter your email and we’ll send a reset link.</p>
+        </div>
+        <div>
+          <label for="forgotEmail" class="block text-xs font-500 text-muted mb-1.5">Email</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="forgotEmail" name="email" type="email" autocomplete="email" required
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="you@university.edu" />
+          </div>
+        </div>
+        <button type="submit" class="submit-btn w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2">Send reset link</button>
+        <button type="button" data-goto="login" class="w-full text-center text-xs text-muted hover:text-fg inline-flex items-center justify-center gap-1"><i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to sign in</button>
+      </form>
+
+      <!-- RESET PASSWORD -->
+      <form id="resetForm" class="space-y-4 hidden" novalidate>
+        <div>
+          <h2 class="font-display font-600 text-xl">Choose a new password</h2>
+          <p class="text-sm text-muted mt-1">Make it at least 12 characters.</p>
+        </div>
+        <div>
+          <label for="resetPassword" class="block text-xs font-500 text-muted mb-1.5">New password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+            <input id="resetPassword" name="password" type="password" autocomplete="new-password" required minlength="12"
+              class="w-full bg-surface2 border border-border rounded-lg pl-10 pr-10 py-2.5 text-sm placeholder:text-muted focus:border-primary/60 transition-colors" placeholder="At least 12 characters" />
+            <button type="button" class="pw-toggle absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted hover:text-fg" data-target="resetPassword" aria-label="Show password"><i data-lucide="eye" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="submit-btn w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2">Update password</button>
+      </form>
+
+      <!-- VERIFY EMAIL -->
+      <div id="verifyView" class="hidden text-center py-4">
+        <div id="verifyIcon" class="w-12 h-12 mx-auto rounded-full bg-surface2 border border-border grid place-items-center mb-3">
+          <i data-lucide="loader" class="w-6 h-6 text-primary animate-spin"></i>
+        </div>
+        <h2 id="verifyTitle" class="font-display font-600 text-lg">Verifying your email…</h2>
+        <p id="verifyMsg" class="text-sm text-muted mt-1.5">One moment.</p>
+        <button type="button" data-goto="login" class="mt-4 inline-flex text-sm text-primary hover:underline">Go to sign in</button>
+      </div>
+
+      <p class="text-center text-[11px] text-muted mt-8">By continuing you agree to Buddyy’s terms and privacy policy.</p>
+    </div>
+  </main>
+</div>
+
+<script type="module" src="/src/auth.ts"></script>
+</body>
+</html>

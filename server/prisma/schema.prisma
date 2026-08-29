@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Dev uses SQLite. For production, switch to PostgreSQL:
+  //   1. provider = "postgresql"
+  //   2. DATABASE_URL="postgresql://user:pass@host:5432/buddyy?schema=public"
+  //   3. npx prisma migrate deploy   (or `prisma db push`)
+  // Relational data works as-is. For real vector search at scale, enable the
+  // pgvector extension and migrate Chunk.embedding to a `vector` column + ANN
+  // index (see README → "Scaling to Postgres + pgvector").
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String?
+  emailVerified Boolean  @default(false)
+  role          String   @default("student") // "student" | "admin"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  refreshTokens      RefreshToken[]
+  verificationTokens VerificationToken[]
+  notebooks          Notebook[]
+}
+
+/// A study notebook (like a NotebookLM notebook): a collection of sources the
+/// student can chat with.
+model Notebook {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sources  Source[]
+  messages Message[]
+
+  @@index([userId])
+}
+
+/// An uploaded document (lecture, book, article, homework, exam) belonging to a
+/// notebook. Text is extracted, chunked, embedded, and stored as Chunks.
+model Source {
+  id         String   @id @default(cuid())
+  notebookId String
+  notebook   Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  title      String
+  type       String // lecture | book | article | homework | exam | other
+  mimeType   String
+  storageKey String // filename in the storage backend (never the raw path)
+  sizeBytes  Int
+  status     String   @default("processing") // processing | ready | failed
+  error      String?
+  createdAt  DateTime @default(now())
+
+  chunks Chunk[]
+
+  @@index([notebookId])
+}
+
+/// A chunk of a source's text plus its embedding (JSON-encoded float array for
+/// SQLite dev; move to pgvector in production).
+model Chunk {
+  id        String   @id @default(cuid())
+  sourceId  String
+  source    Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  index     Int
+  content   String
+  embedding String
+  createdAt DateTime @default(now())
+
+  @@index([sourceId])
+}
+
+/// A persisted chat turn in a notebook. Assistant turns carry JSON citations.
+model Message {
+  id         String   @id @default(cuid())
+  notebookId String
+  notebook   Notebook @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  role       String // user | assistant
+  content    String
+  citations  String? // JSON array
+  createdAt  DateTime @default(now())
+
+  @@index([notebookId])
+}
+
+/// Rotating refresh tokens. Only a SHA-256 hash is stored, never the raw token.
+/// A `familyId` links every token descended from one login so we can revoke the
+/// whole family the moment a stolen token is replayed (reuse detection).
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  familyId  String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+/// Single-use, expiring tokens for email verification and password reset.
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  type      String // "email_verify" | "password_reset"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}

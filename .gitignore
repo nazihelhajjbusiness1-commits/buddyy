@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build output
+dist
+**/dist
+
+# Env / secrets — never commit these
+.env
+.env.*
+!.env.example
+*.local
+
+# Prisma / SQLite databases
+**/prisma/dev.db
+**/prisma/dev.db-journal
+**/prisma/test.db
+
+# Uploaded files (local dev storage)
+server/uploads
+
+# Editor / OS
+.DS_Store
+.vscode
+.idea

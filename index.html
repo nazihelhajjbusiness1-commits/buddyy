@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Buddyy — Interactive Study Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Crimson+Pro:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['DM Sans', 'sans-serif'],
+          display: ['Space Grotesk', 'sans-serif'],
+          serif: ['Crimson Pro', 'serif'],
+        },
+        colors: {
+          bg:        '#F6F5FB',
+          surface:   '#FFFFFF',
+          surface2:  '#F1EEF9',
+          border:    '#E5E1F0',
+          primary:   '#7C3AED',
+          secondary: '#6366F1',
+          accent:    '#DB2777',
+          fg:        '#211E33',
+          muted:     '#6E6A85',
+          success:   '#059669',
+          warn:      '#D97706',
+          danger:    '#DC2626',
+        },
+      },
+    },
+  };
+</script>
+</head>
+<body class="font-sans text-fg antialiased">
+
+<div class="h-screen w-screen relative overflow-hidden bg-bg">
+
+  <!-- ================= AVATAR STAGE ================= -->
+  <!-- dark ambient background keeps the glass overlays legible -->
+  <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#191627] via-[#141122] to-[#0E0C17]"></div>
+  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 w-[520px] h-[520px] max-w-[90vw] rounded-full bg-primary/20 blur-[120px] pointer-events-none"></div>
+
+  <!-- avatar shown at its optimal size, centered (no full-screen upscaling) -->
+  <div class="absolute inset-0 z-0 grid place-items-center px-4 pt-16 pb-52">
+    <div id="avatarWrap" class="relative w-full max-w-[380px] aspect-[3/4] max-h-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+      <div id="anamMount" class="absolute inset-0 grid place-items-center overflow-hidden bg-[#1C1927]">
+        <video id="anamVideo" class="absolute inset-0 w-full h-full object-cover hidden" autoplay playsinline></video>
+        <div class="relative flex flex-col items-center gap-3">
+          <i id="anamFallback" data-lucide="bot" class="w-24 h-24 text-white/25"></i>
+          <p class="text-sm text-white/50">Your study buddy is getting ready…</p>
+        </div>
+      </div>
+      <!-- Spatius renders its 3D avatar canvas into this container -->
+      <div id="spatiusMount" class="absolute inset-0 hidden overflow-hidden rounded-[inherit]"></div>
+      <div class="speak-glow"></div>
+      <button id="avatarConnectBtn" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-600 shadow-lg shadow-primary/30">
+        Start avatar
+      </button>
+    </div>
+  </div>
+
+  <!-- bottom scrim for control legibility -->
+  <div class="absolute inset-x-0 bottom-0 h-72 z-10 bg-gradient-to-t from-black/55 to-transparent pointer-events-none"></div>
+
+  <!-- ================= TOP BAR ================= -->
+  <header class="absolute top-0 inset-x-0 z-30 flex items-center gap-3 px-4 h-14 text-white">
+    <button id="sidebarToggle" class="w-10 h-10 grid place-items-center rounded-xl bg-white/10 backdrop-blur border border-white/15 hover:bg-white/20 transition" aria-label="Open sources">
+      <i data-lucide="panel-left" class="w-5 h-5"></i>
+    </button>
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-lg shadow-primary/30">
+        <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="font-display font-700 text-lg tracking-tight hidden sm:block">Buddyy</span>
+    </div>
+    <button id="notebookTitle" class="hidden md:block text-sm text-white/75 hover:text-white truncate max-w-[220px]">My Study Notebook</button>
+
+    <div class="ml-auto flex items-center gap-2">
+      <div id="pillFocus" class="flex items-center gap-1.5 text-xs font-500 px-2.5 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15">
+        <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+        <span id="focusLabel">Focused</span>
+      </div>
+      <div class="relative">
+        <button id="userMenuBtn" class="w-9 h-9 rounded-full bg-gradient-to-br from-secondary to-primary grid place-items-center text-sm font-600 text-white border border-white/15" title="Account" aria-haspopup="true" aria-expanded="false">B</button>
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-surface border border-border rounded-xl shadow-2xl shadow-black/20 p-2 z-40 text-fg">
+          <div class="px-3 py-2">
+            <p id="userMenuName" class="text-sm font-600 truncate">—</p>
+            <p id="userMenuEmail" class="text-xs text-muted truncate">—</p>
+          </div>
+          <hr class="border-border my-1" />
+          <button id="logoutBtn" class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-surface2 text-danger transition-colors">
+            <i data-lucide="log-out" class="w-4 h-4"></i> Log out
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= FOCUS MONITOR (top-right, when mic/cam on) ================= -->
+  <div id="monitorDock" class="hidden absolute top-16 right-4 z-30 w-60 space-y-2 text-white">
+    <div id="micPanel" class="hidden rounded-xl bg-black/40 backdrop-blur border border-white/10 p-3">
+      <div class="flex items-center gap-2 text-xs font-600 mb-2"><i data-lucide="mic" class="w-4 h-4 text-primary"></i> Listening</div>
+      <div id="micBars" class="flex items-end gap-0.5 h-7">
+        <span class="mic-bar flex-1 bg-primary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-primary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-secondary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-secondary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-accent/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-secondary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-secondary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-primary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+        <span class="mic-bar flex-1 bg-primary/70 rounded-t transition-[height] duration-100" style="height:12%"></span>
+      </div>
+      <p id="micStatus" class="text-[11px] text-white/70 mt-1.5">Listening…</p>
+    </div>
+    <div id="camPanel" class="hidden rounded-xl bg-black/40 backdrop-blur border border-white/10 p-3">
+      <div class="flex items-center gap-2 text-xs font-600 mb-2"><i data-lucide="video" class="w-4 h-4 text-secondary"></i> Watching</div>
+      <div class="relative rounded-lg overflow-hidden bg-black/40 h-24">
+        <video id="camVideo" class="w-full h-full object-cover -scale-x-100" autoplay playsinline muted></video>
+        <canvas id="camCanvas" width="32" height="24" class="hidden"></canvas>
+        <span id="camStatus" class="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-success/20 text-success border border-success/30">At your desk</span>
+      </div>
+    </div>
+    <div class="rounded-xl bg-black/40 backdrop-blur border border-white/10 p-3">
+      <div class="flex items-center justify-between text-[11px] text-white/70 mb-1"><span>Focus level</span><span id="focusPct">86%</span></div>
+      <div class="h-2 rounded-full bg-white/15 overflow-hidden"><div id="focusBar" class="h-full focus-track transition-all duration-700" style="width:86%"></div></div>
+    </div>
+  </div>
+
+  <!-- ================= BOTTOM: transcript + prompt + controls ================= -->
+  <div class="absolute inset-x-0 bottom-0 z-30 px-4 pb-4 pt-2">
+    <div class="max-w-2xl mx-auto">
+
+      <!-- status -->
+      <div class="flex items-center justify-center gap-2 mb-2">
+        <div id="speakBadge" class="flex items-end gap-0.5 h-4">
+          <span class="vbar w-0.5 h-3 bg-primary rounded-full"></span>
+          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.15s"></span>
+          <span class="vbar w-0.5 h-3 bg-accent rounded-full" style="animation-delay:.3s"></span>
+          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.45s"></span>
+        </div>
+        <p id="avatarStatus" class="text-xs text-white/85">Ready to help you study.</p>
+      </div>
+
+      <!-- transcript -->
+      <div id="chatLog" class="max-h-[30vh] overflow-y-auto space-y-3 mb-3 pr-1">
+        <!-- messages injected by main.ts -->
+      </div>
+
+      <!-- suggested prompts -->
+      <div class="flex flex-wrap gap-2 justify-center mb-2.5">
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Summarize my sources</button>
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Make a study guide</button>
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Quiz me</button>
+      </div>
+
+      <!-- prompt bar -->
+      <form id="chatForm">
+        <div class="flex items-end gap-2 bg-white/12 backdrop-blur-xl border border-white/20 rounded-2xl px-3 py-2.5 shadow-2xl shadow-black/30">
+          <button type="button" class="p-1.5 rounded-lg text-white/70 hover:text-white" aria-label="Attach"><i data-lucide="paperclip" class="w-4 h-4"></i></button>
+          <textarea id="chatInput" rows="1" placeholder="Ask anything about your sources…" class="flex-1 bg-transparent resize-none text-sm text-white placeholder:text-white/55 max-h-32 py-1.5 focus:outline-none"></textarea>
+          <button type="submit" class="w-9 h-9 shrink-0 rounded-xl bg-primary grid place-items-center hover:bg-primary/90 transition-colors" aria-label="Send">
+            <i data-lucide="arrow-up" class="w-4 h-4 text-white"></i>
+          </button>
+        </div>
+      </form>
+
+      <!-- call controls -->
+      <div class="flex items-center justify-center gap-3 mt-3">
+        <button id="micBtn" class="w-12 h-12 rounded-full bg-white/10 backdrop-blur border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle microphone">
+          <i data-lucide="mic-off" class="w-5 h-5 text-white/70"></i>
+        </button>
+        <button id="camBtn" class="w-12 h-12 rounded-full bg-white/10 backdrop-blur border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle camera">
+          <i data-lucide="video-off" class="w-5 h-5 text-white/70"></i>
+        </button>
+        <button id="speakBtn" class="w-12 h-12 rounded-full bg-primary grid place-items-center hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30" aria-label="Mute avatar voice">
+          <i data-lucide="volume-2" class="w-5 h-5 text-white"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SOURCES DRAWER ================= -->
+  <div id="sidebarBackdrop" class="hidden absolute inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
+  <aside id="sidebar" class="absolute inset-y-0 left-0 z-50 w-80 max-w-[85vw] bg-surface border-r border-border flex flex-col -translate-x-full transition-transform duration-300 ease-out">
+    <div class="p-4 pb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <h2 class="font-display font-600 text-sm tracking-wide uppercase text-muted">Sources</h2>
+        <span id="sourceCount" class="text-xs text-muted bg-surface2 px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <button id="sidebarClose" class="p-2 rounded-lg hover:bg-surface2 text-muted" aria-label="Close sources"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+
+    <div class="px-4">
+      <input id="fileInput" type="file" multiple class="hidden" accept=".pdf,.doc,.docx,.txt,.md,text/plain,application/pdf" />
+      <select id="sourceType" class="w-full mb-2 bg-surface2 border border-border rounded-lg text-xs px-2 py-2 text-fg focus:border-primary/60" aria-label="Source type">
+        <option value="lecture">Lecture</option>
+        <option value="book">Book</option>
+        <option value="article">Article</option>
+        <option value="homework">Homework</option>
+        <option value="exam">Exam</option>
+        <option value="other">Other</option>
+      </select>
+      <button id="addSourceBtn" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20">
+        <i data-lucide="plus" class="w-4 h-4"></i> Add source
+      </button>
+      <p class="text-[11px] text-muted mt-2 text-center">PDF · DOCX · TXT · MD</p>
+    </div>
+
+    <label class="flex items-center gap-2 px-4 mt-4 text-xs text-muted cursor-pointer select-none">
+      <input id="selectAll" type="checkbox" checked class="accent-primary w-3.5 h-3.5" /> Select all sources
+    </label>
+
+    <ul id="sourceList" class="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5">
+      <!-- source items injected by main.ts -->
+    </ul>
+  </aside>
+
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

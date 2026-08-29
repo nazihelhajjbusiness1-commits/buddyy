@@ -1,0 +1,38 @@
+# Render Blueprint for the Buddyy API + Postgres.
+# Deploy: push to GitHub, then New → Blueprint in the Render dashboard.
+# The frontend is deployed separately on Vercel (see vercel.json).
+services:
+  - type: web
+    name: buddyy-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: starter # free tier spins down after 15 min idle; starter is always-on
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: buddyy-db
+          property: connectionString
+      - key: ACCESS_TOKEN_SECRET
+        generateValue: true # Render generates a strong secret
+      # Fill these in the dashboard (or add here) — they are left blank on purpose:
+      - key: CLIENT_ORIGIN
+        sync: false # e.g. https://buddyy.vercel.app
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+
+databases:
+  - name: buddyy-db
+    plan: basic-256mb # upgrade RAM if you enable pgvector at scale
+    postgresMajorVersion: "16"
