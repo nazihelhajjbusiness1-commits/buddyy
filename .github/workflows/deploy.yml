@@ -1,0 +1,36 @@
+name: Deploy
+
+# Continuous deployment. Runs only after CI succeeds on main.
+#
+# - Backend (Render): trigger a deploy via a Render "Deploy Hook" URL stored as
+#   the repo secret RENDER_DEPLOY_HOOK_URL. If the secret is absent the step is
+#   skipped, so the workflow is safe to merge before you connect Render.
+#   (Alternatively, enable Render's native auto-deploy on the service and you can
+#   delete this workflow entirely.)
+# - Frontend (Vercel): deployed automatically by the Vercel GitHub App once you
+#   import the repo — no workflow step needed here.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy-backend:
+    name: Trigger Render deploy
+    runs-on: ubuntu-latest
+    # Only deploy when the CI run that triggered this actually passed.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Call Render deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL not set — skipping (configure it in repo secrets to enable CD)."
+            exit 0
+          fi
+          echo "Triggering Render deploy..."
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Render deploy triggered."
