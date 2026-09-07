@@ -1,241 +1,208 @@
-# Buddyy — Cost Analysis
+# Buddyy — Cost Analysis & Pricing
 
-_Prepared 2026-08-25. All third-party prices are as published on that date and
-will drift — re-check before committing to a plan._
+_Prepared 2026-09-02. All third-party prices are as published on that date and
+will drift — re-verify (Google TTS, Spatius, Gemini, Vercel, Render, Supabase)
+before committing to a plan._
 
-This estimates what Buddyy costs to run, in three buckets: **AI/API usage**
-(scales with users), **avatar + voice** (the dominant driver), and **hosting/
-deployment** (mostly fixed). It ends with monthly scenarios and cost-control
-levers.
-
-> **Key finding:** Spatius does **not** include a voice — it bills only for
-> avatar motion/rendering and expects bring-your-own TTS. A provider-supplied
-> voice means either **ANAM** (turnkey, voice included, expensive per minute) or
-> **Spatius + a paid cloud TTS** (much cheaper end-to-end). The avatar minutes
-> dominate total cost at any real scale.
+This models what Buddyy actually costs to run on its **current stack** —
+**Spatius avatar + Google Cloud TTS voice + Google Gemini**, deployed on
+**Vercel (frontend) + Render (backend) + Supabase (Postgres/pgvector/storage)**
+— and derives a subscription plan that is profitable at small scale.
 
 ---
 
-## 1. Unit prices (as of 2026-08-25)
+## The one principle that governs everything
+
+There are **three different clocks**, and only one of them costs you money:
+
+| Clock | Typical minutes/mo | Who pays | Cost driver |
+|---|---|---|---|
+| **Study / monitoring time** (app open, focus tracking) | ~1,500–2,000 | **client-side → $0** | the student's own device |
+| **Avatar speaking time** (Spatius + TTS) | ~130 | **you** | the entire bill |
+| **Chat / LLM** (Gemini) | ~130 questions | you, trivially | ~$0.10/mo |
+
+**Focus detection runs entirely on-device** (MediaPipe + Web Audio in the
+browser), so studying and monitoring cost you nothing regardless of how long a
+student uses the app. **The only metered cost is the minutes the avatar
+actually speaks.** Every pricing and design decision below follows from this.
+
+> ⚠️ Never send webcam/mic to a cloud vision/audio model. At ~2,000 study
+> min/user/mo, cloud CV (~$0.05–0.10/min) would cost **$100–300 per user per
+> month** — 10–30× the subscription price. On-device is both far cheaper and a
+> privacy selling point ("your camera never leaves your device").
+
+---
+
+## 1. Realistic usage assumptions (grounded, not inflated)
+
+| Assumption | Value | Basis |
+|---|---|---|
+| Total study time | ~1,800–2,800 min/mo | objective time-use studies (~7–11 hrs/week) |
+| **In-app study time (plan around this)** | **~1,500–2,000 min/mo** | app captures ~30–60% of study time |
+| LLM adoption among students | ~85–90% have used AI; ~50–60% regularly | 2025–2026 surveys |
+| LLM questions per session | ~8–15 | typical active use |
+| **LLM questions / mo** | **~130** | ~16 sessions × partial AI use |
+| **Avatar speaking min / mo (typical)** | **~130** | ~0.9 min spoken per answer |
+
+---
+
+## 2. Unit prices (as of 2026-09-02)
 
 | Component | Provider / plan | Price |
 |---|---|---|
-| Chat LLM | Google Gemini 2.5 Flash-Lite | **$0.10 / M input**, $0.40 / M output |
-| Embeddings | Gemini Embedding | **$0.15 / M tokens** (one-time, at upload) |
-| Avatar (motion only) | **Spatius** Builder/Scale | **$0.007–0.009 / min** ($19–$299/mo tiers) |
-| Avatar + voice (turnkey) | **ANAM** | **~$0.15 / min blended** (~$0.12–0.24 across plans) |
-| TTS (if using Spatius) | **Deepgram Aura-2** | **$0.03 / 1k chars** ($30 / M) |
-| TTS (premium option) | ElevenLabs Flash / Multilingual | $0.05 / $0.10 per 1k chars |
-| TTS (free option) | Piper / Edge (self-hosted) | $0 (rejected — quality/emotion) |
+| Avatar motion | **Spatius** | **$0.008 / min** |
+| Voice / TTS | **Google Cloud TTS — Neural2** | **$16 / 1M chars** (~$0.0125 / spoken min) |
+| Voice / TTS (cheaper lever) | Google Cloud TTS — Standard | $4 / 1M chars (~$0.0031 / min) |
+| Chat LLM | Google Gemini Flash-Lite | $0.10 / M in · $0.40 / M out (~$0.0004 / answer) |
+| Embeddings | Gemini Embedding | one-time at upload (pennies) |
+| Focus detection | MediaPipe + Web Audio (client-side) | **$0 — never bills** |
+| Payments | Stripe | 2.9% + $0.30 per charge |
 
-Free tiers useful during dev/pilot: Gemini free tier, **Spatius Free = 100 min/mo**,
-ANAM includes some free minutes, Supabase/Vercel/Cloudflare free tiers.
+**Blended cost per avatar-speaking-minute ≈ $0.021** (Spatius $0.008 + Neural2
+TTS $0.0125 + Gemini ~$0.0004).
 
----
-
-## 2. Assumptions (tune these — they drive everything)
-
-| Assumption | Value |
-|---|---|
-| Study session length | 30 min |
-| **Avatar speaking time per session** (on-demand streaming) | **12 min** (~40% talk) |
-| Answers per session | 12 |
-| Words per answer | ~130 (~780 chars) |
-| LLM tokens per answer | ~2,500 in / ~220 out (RAG context + answer) |
-| Sessions per active user per month | 16 (≈ 4×/week) |
-
-**On-demand streaming is assumed** (avatar connects only while speaking, per
-roadmap item #11). Leaving the avatar streaming for the full 30 min instead of
-12 would roughly **2.5× the avatar cost** — the single biggest lever.
+Free tiers useful during dev/pilot: **Google TTS 1M chars/mo free**, **Spatius
+Free 100 min/mo**, Gemini free tier, Supabase/Vercel free tiers.
 
 ---
 
-## 3. Cost per active user per month
+## 3. Variable cost per user / month
 
-### Path A — Spatius + Deepgram TTS (recommended for cost)
-| Item | Math | $/user/mo |
-|---|---|---|
-| Chat LLM | 16 × 12 × (2.5k in + 0.22k out) | ~$0.07 |
-| Embeddings | ~1 doc/mo | ~$0.05 |
-| TTS (Deepgram) | 16 × 9.4k chars × $0.00003 | ~$4.50 |
-| Avatar (Spatius) | 16 × 12 min × $0.008 | ~$1.54 |
-| **Total variable** | | **~$6 / user / mo** |
+| User profile | Avatar min/mo | Spatius | Google TTS | Gemini | **Total / user** |
+|---|---|---|---|---|---|
+| Light | ~60 | $0.48 | $0.75 | $0.05 | **~$1.28** |
+| **Typical student** | **~130** | $1.04 | $1.63 | $0.10 | **~$2.77** |
+| Student cap | 150 | $1.20 | $1.88 | $0.06 | ~$3.15 |
+| Heavy / Pro | ~400 | $3.20 | $5.00 | $0.20 | **~$8.40** |
+| Pro cap | 500 | $4.00 | $6.25 | $0.20 | ~$10.45 |
 
-### Path B — ANAM (voice included)
-| Item | Math | $/user/mo |
-|---|---|---|
-| Chat + embeddings | (same as above) | ~$0.12 |
-| Avatar + voice (ANAM) | 16 × 12 min × $0.15 | ~$28.80 |
-| **Total variable** | | **~$29 / user / mo** |
-
-> Note: with Spatius, **TTS ($4.50) actually exceeds the avatar cost ($1.54)** —
-> so the choice of TTS matters most on that path. Dropping to a free/cheaper
-> voice would cut Path A to ~$2/user/mo.
+> Note: **TTS costs more than the avatar motion itself.** Serving free-tier
+> users with Google **Standard** voices (75% cheaper) is a meaningful lever.
 
 ---
 
 ## 4. Fixed hosting / deployment (monthly)
 
-| Component | Scrappy (free tiers) | Production |
+| Item | Launch (lean) | At scale (100s–1k users) |
 |---|---|---|
-| Backend (Render/Railway/Fly) | $0–7 | $25 |
-| Postgres + pgvector (Supabase/Neon) | $0 | $25 |
-| Redis for job queue (Upstash) | $0 | $10 |
-| Object storage (Cloudflare R2 — no egress) | $0–5 | $5–15 |
-| Frontend static (Vercel/Cloudflare Pages) | $0 | $20 |
-| Transactional email (Resend/SES) | $0 (3k/mo) | $20 |
+| Vercel Pro (frontend — **required once you charge**) | $20 | $20 + bandwidth |
+| Render (Express backend, always-on) | Starter $7 | Standard $25 |
+| Supabase (Postgres + pgvector + storage + auth) | **Free** | Pro $25 (+usage) |
+| Transactional email (Resend) | $0 (3k/mo) | $20 |
 | Error tracking (Sentry) | $0 | $26 |
-| Domain | ~$1 | ~$1 |
-| **Total fixed** | **~$10–20/mo** | **~$130–150/mo** |
+| Domain (amortized) | ~$1 | ~$1 |
+| **Fixed total** | **~$28/mo** | **~$117/mo** |
+
+> ⚠️ **Vercel Hobby forbids commercial use** — must be Pro ($20) the moment you
+> charge. **Render free tier spins down** after 15 min idle — needs the $7
+> always-on Starter.
 
 ---
 
-## 5. Monthly scenarios (Path A: Spatius + Deepgram, on-demand)
+## 5. Recommended subscription plan
 
-| Stage | Users | Variable (~$6/user) | Fixed | **Total / mo** | ANAM equiv (Path B) |
-|---|---|---|---|---|---|
-| Dev / pilot (free tiers) | ~10 | mostly free | ~$15 | **~$15–60** | ~$15–60 |
-| Small pilot | 25 | ~$150 | ~$50 | **~$200** | ~$770 |
-| Growing | 100 | ~$600 | ~$120 | **~$720** | ~$3,000 |
-| Mid | 500 | ~$3,000 | ~$300 | **~$3,300** | ~$14,700 |
-| Larger | 1,000 | ~$6,000 | ~$500 | **~$6,500** | ~$29,300 |
+The key move: **make the avatar voice the paid feature.** Free users get
+unlimited text chat + focus monitoring (which cost ~$0 to serve), so a large
+free base can't hurt you — and the talking tutor becomes the upsell.
 
-**Takeaways**
-- During development and a tiny pilot, free tiers keep you at roughly **$0–60/mo**.
-- The **avatar/voice bucket is ~90%+ of cost** at scale. Everything else (LLM,
-  embeddings, hosting) is comparatively rounding error.
-- **Path A (Spatius+Deepgram) is ~4–5× cheaper than ANAM.** The trade-off is
-  more integration work and you must supply a good voice.
+| Plan | Price/mo | What they get | Your cost | **Margin (after Stripe)** |
+|---|---|---|---|---|
+| **Free** (funnel) | $0 | Unlimited grounded text chat + focus monitoring + 10-min avatar trial | ~$0.10 | acquisition (near-zero risk) |
+| **Student** ⭐ | **$9.99** | Everything + **150 avatar-min** + Neural2 voice | ~$2.77–3.15 | **~63%** |
+| **Pro** | **$19.99** | Everything + **500 avatar-min** + advanced focus analytics | ~$8.40–10.45 | **~44%** |
 
----
+**Add-ons:** $3 / 100 extra avatar-min · **Annual Student $99/yr** (2 months
+free — better cash flow + retention).
 
-## 6. Cost-control levers (in order of impact)
-
-1. **On-demand avatar streaming** — connect/stream only while speaking, auto-
-   disconnect when idle. Biggest single lever (roadmap #11).
-2. **Choose the cheap avatar path** — Spatius motion at ~$0.008/min vs ANAM's
-   ~$0.15/min, if you can supply the voice.
-3. **Pick a mid-priced TTS** — Deepgram Aura ($30/M) over ElevenLabs
-   ($50–100/M) unless voice quality is a selling point.
-4. **Cap usage per plan tier** — avatar minutes are the metered resource; add
-   per-user monthly minute caps to prevent runaway bills.
-5. **Keep Gemini Flash-Lite** for chat — already near-free; don't upgrade to Pro
-   unless answer quality demands it.
-6. **Self-host avatar at large scale** — a GPU-hosted avatar (Duix/MuseTalk)
-   removes per-minute fees entirely once volume justifies the fixed GPU cost
-   (roadmap #13).
+**Why it works:** a typical student's natural usage (~130 avatar-min) lands just
+under the 150-min Student cap, so $9.99 covers the average user at ~63% margin,
+while power users self-select into Pro or buy add-on packs.
 
 ---
 
-## 7. Complete cost inventory (everything that can bill you)
+## 6. Break-even & example P&L
 
-Scanned from the codebase (`server/src`, `package.json`) plus what production adds.
+Blended ~$11 ARPU, ~$3.50 variable, ~$0.60 Stripe ⇒ **contribution ≈ $6.9 per
+paying user / mo.**
+
+| Paying users | Revenue | Variable | Fixed | **Profit / mo** |
+|---|---|---|---|---|
+| **~5** | ~$55 | ~$18 | ~$28 | **~break-even** |
+| 50 | ~$550 | ~$175 | ~$40 | **~$335** |
+| 200 | ~$2,200 | ~$700 | ~$117 | **~$1,380** |
+| 500 | ~$5,500 | ~$1,750 | ~$150 | **~$3,600** |
+| 1,000 | ~$11,000 | ~$3,500 | ~$200 | **~$7,300** |
+
+---
+
+## 7. Cost-control levers (in order of impact)
+
+1. **Keep focus detection on-device** — the difference between $0 and bankruptcy
+   at 2,000 study min/user. Non-negotiable.
+2. **On-demand avatar streaming** — connect/stream only while the avatar is
+   actually speaking; auto-disconnect when idle. Otherwise cost ~2.5×.
+3. **Make voice optional per answer** — default quick lookups to text (free),
+   reserve the avatar voice for explanations. Can cut avatar minutes 30–50%.
+4. **Hard avatar-minute caps per plan** — the only metered resource; caps make
+   cost predictable no matter how much a student studies.
+5. **Standard voice for the free tier** — 75% cheaper TTS where quality matters
+   least.
+6. **Keep Gemini Flash-Lite** for chat — already near-free.
+
+---
+
+## 8. Complete cost inventory (everything that can bill you)
 
 | Category | Service | Free during dev? | Paid trigger |
 |---|---|---|---|
 | Chat LLM | Google Gemini Flash-Lite | ✅ free tier | usage over free tier |
-| Embeddings | Gemini Embedding (or Voyage — optional, in code) | ✅ free tier | per upload |
-| Avatar | Spatius (motion) **or** ANAM (turnkey) | ✅ free minutes | per streamed minute |
-| Voice/TTS | **Azure Neural TTS** (emotion) / Deepgram / ElevenLabs | trial credits | per char |
-| Focus monitoring | TF.js + COCO-SSD (client-side) | ✅ always free | — never bills |
-| Backend host | **Render** Web Service | free tier spins down | always-on = $7/mo |
-| Database | **Render PostgreSQL** + pgvector | free 1-mo trial | $6/mo+ |
-| Frontend host | **Vercel** | Hobby free | **commercial use ⇒ Pro $20/mo** |
-| Domain | registrar | — | ~$12/yr (.com) / ~$90/yr (.ai) |
-| Email | Resend / SES | ✅ 3k/mo free | over free tier |
-| Job queue | Upstash Redis (for durable ingestion) | ✅ free tier | at scale |
-| File storage | Cloudflare R2 (no egress fees) | ✅ 10 GB free | over free tier |
-| Payments | Stripe | — | **2.9% + $0.30 per charge** |
+| Embeddings | Gemini Embedding | ✅ free tier | per upload |
+| Avatar | Spatius (motion) | ✅ 100 free min/mo | per streamed minute |
+| Voice/TTS | Google Cloud TTS | ✅ 1M chars/mo | per character |
+| Focus monitoring | MediaPipe + Web Audio (client-side) | ✅ always free | — never bills |
+| Backend host | Render Web Service | spins down when idle | always-on = $7/mo |
+| Database + storage | Supabase (Postgres/pgvector/storage/auth) | ✅ free tier | Pro $25/mo |
+| Frontend host | Vercel | Hobby free | **commercial ⇒ Pro $20/mo** |
+| Domain | registrar | — | ~$12/yr (.com) |
+| Email | Resend | ✅ 3k/mo free | over free tier |
+| Payments | Stripe | — | 2.9% + $0.30 / charge |
 | Error tracking | Sentry | ✅ free tier | at scale |
 
-> ⚠️ **Vercel Hobby forbids commercial use** — the moment you charge a user you
-> must be on Pro ($20/mo). Budget it from day one.
-> ⚠️ **Render free web services spin down after 15 min idle** — unusable for a
-> live app; you need the always-on Starter ($7/mo).
+---
+
+## 9. What still blocks charging money
+
+The plan above is only real once these exist (none are built yet):
+
+1. **Usage metering + avatar-minute caps** (enforced in code) — the guardrail
+   the entire pricing model depends on. **#1 priority.**
+2. **Stripe billing / subscriptions.**
+3. **Migrate SQLite → Supabase Postgres + pgvector.**
+4. **Cloud file storage** (Supabase Storage) — currently local disk.
+5. **Production security** (`COOKIE_SECURE=true`, HTTPS, real secrets).
+6. **Real transactional email** (currently logs to console).
+7. **Privacy Policy + Terms + explicit camera/mic consent** — legally required
+   for a webcam/mic product.
 
 ---
 
-## 8. Fixed deployment cost — your stack (Render + Vercel + domain)
+## Verdict
 
-| Item | Launch (lean) | At scale (100s of users) |
-|---|---|---|
-| Render Web Service (backend, always-on) | Starter **$7** | Standard **$25** |
-| Render PostgreSQL + pgvector | Basic **$6** | Pro **$20–50** (RAM for vectors) |
-| Vercel (frontend, commercial ⇒ Pro) | **$20** | **$20** + bandwidth |
-| Domain (.com amortized) | **~$1.25** | ~$1.25 |
-| Email (Resend) | $0 (free 3k) | $20 |
-| Redis queue (Upstash) | $0 | $10 |
-| Object storage (Cloudflare R2) | $0 | ~$5 |
-| Error tracking (Sentry) | $0 | $26 |
-| **Fixed total** | **~$34/mo** | **~$130–160/mo** |
-
----
-
-## 9. Variable cost per user — recommended path
-
-**Path: Spatius avatar + Azure Neural TTS (emotion) + Gemini, on-demand streaming.**
-
-Per **avatar-minute of speech** (the metered resource):
-- Azure Neural TTS: ~900 chars/min × $15/M = **$0.0135**
-- Spatius motion: **$0.008**
-- Gemini LLM: negligible (~$0.0003)
-- **≈ $0.022 per avatar-minute**
-
-Text/voice chat *without* the rendered avatar is nearly free (~$0.0004/answer),
-so the strategy is: **default to cheap text+voice, meter the talking avatar.**
-
----
-
-## 10. Recommended pricing & plans
-
-Avatar minutes are the cost, so plans are gated on **avatar minutes/month**.
-Text chat, uploads, and focus monitoring are effectively free to serve.
-
-| Plan | Price/mo | Avatar min/mo | Your variable cost | Gross margin* |
-|---|---|---|---|---|
-| **Free** (funnel) | $0 | 30 | ~$0.70 | — (acquisition) |
-| **Student** | **$9.99** | 150 | ~$3.30 | **~60%** |
-| **Pro** | **$19.99** | 500 | ~$11.00 | **~40%** |
-
-\* after Stripe (2.9% + $0.30). Add an **annual plan at ~2 months free**
-($99/yr Student) to boost cash flow and retention.
-
-**Why $9.99 Student is the anchor:** it's within student willingness-to-pay,
-clears variable cost + Stripe with ~60% margin, and the 150-min cap (~12
-sessions) protects you from runaway avatar bills. Over-cap users either upgrade
-to Pro or buy add-on minute packs (e.g. $3 / 100 min).
-
----
-
-## 11. Break-even & example P&L (blended ~$11 ARPU)
-
-Assume blended revenue ~$11/paying user, blended variable ~$3.50, Stripe ~$0.60
-⇒ **contribution ≈ $6.9/paying user/mo**.
-
-| Paying users | Revenue | Variable | Fixed | **Profit/mo** |
-|---|---|---|---|---|
-| **Break-even** | ~7–10 | — | ~$50 | **$0** |
-| 50 | ~$550 | ~$205 | ~$50 | **~$295** |
-| 200 | ~$2,200 | ~$820 | ~$110 | **~$1,270** |
-| 1,000 | ~$11,000 | ~$4,100 | ~$200 | **~$6,700** |
-
-Free users are the main uncapped risk: hold their avatar cap tight (≤30 min) so
-a large free base (e.g. 10× paying) stays a manageable ~$0.70 each.
-
-**Verdict:** With Render+Vercel, the Spatius+Azure path, on-demand streaming,
-and metered avatar minutes, the project **breaks even at ~7–10 paying users and
-carries healthy 40–60% margins.** It is sustainable — the ANAM path is not.
+With focus detection on-device, avatar minutes capped, and the voice sold as the
+paid feature, Buddyy **breaks even at ~5 paying users**, runs at **~$28/mo during
+the pilot**, and carries **healthy 44–63% gross margins**, scaling to **~$7k/mo
+profit at 1,000 paying users**. The economics are sound. The remaining work is
+**billing/metering, the Supabase migration, and the legal/consent layer** — not
+cost.
 
 ---
 
 ## Sources
+
 - [Spatius pricing](https://www.spatius.ai/pricing/)
-- [Spatius — avatar pricing comparison (2026)](https://www.spatius.ai/blog/compare-pricing-leading-ai-avatar-services-2026/)
 - [Spatius — BYO LLM & TTS avatar APIs](https://www.spatius.ai/blog/best-ai-avatar-apis-byo-llm-tts-2026/)
-- [Anam pricing](https://anam.ai/pricing)
-- [Anam pricing explained (2026)](https://selviaai.com/anam-pricing-explained)
+- [Google Cloud Text-to-Speech pricing](https://cloud.google.com/text-to-speech/pricing)
 - [Gemini API pricing 2026](https://tokenmix.ai/blog/gemini-api-pricing)
-- [Deepgram Aura TTS pricing 2026](https://texttolab.com/blog/deepgram-pricing)
-- [ElevenLabs pricing 2026](https://texttolab.com/blog/elevenlabs-pricing)
-- [Render pricing 2026](https://render.com/pricing)
-- [Vercel pricing 2026](https://vercel.com/pricing)
+- [Vercel pricing](https://vercel.com/pricing)
+- [Render pricing](https://render.com/pricing)
+- [Supabase pricing](https://supabase.com/pricing)

@@ -91,12 +91,13 @@ const schema = z.object({
   SPATIUS_AVATAR_ID: z.string().optional(),
   SPATIUS_CONSOLE_URL: z.string().url().default('https://console.us-west.spatius.ai/v1'),
 
-  // Piper TTS (self-hosted, free) — turns answer text into PCM16 audio that
-  // drives the Spatius avatar. Point PIPER_BIN at the piper executable and
-  // PIPER_MODEL at a voice .onnx. Match PIPER_SAMPLE_RATE to the voice model.
-  PIPER_BIN: z.string().optional(),
-  PIPER_MODEL: z.string().optional(),
-  PIPER_SAMPLE_RATE: z.coerce.number().int().positive().default(22050),
+  // Text-to-Speech via Google Gemini's native TTS models — the voice that turns
+  // answer text into PCM16 audio to drive the Spatius avatar (Spatius has no
+  // voice of its own). Reuses the free AI Studio GEMINI_API_KEY (no card, no
+  // separate Cloud project). Gemini TTS always returns 24kHz mono PCM16.
+  // Voices: https://ai.google.dev/gemini-api/docs/speech-generation#voices
+  GEMINI_TTS_MODEL: z.string().default('gemini-2.5-flash-preview-tts'),
+  GEMINI_TTS_VOICE: z.string().default('Kore'),
 });
 
 const parsed = schema.safeParse(process.env);

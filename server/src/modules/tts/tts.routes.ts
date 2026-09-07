@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { env } from '../../config/env';
 import { requireAuth } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { ttsConfigured, synthesizePcm } from '../../lib/tts';
+import { ttsConfigured, synthesizePcm, TTS_SAMPLE_RATE } from '../../lib/tts';
 
 export const ttsRouter = Router();
 
@@ -14,7 +13,7 @@ const speakSchema = z.object({ text: z.string().trim().min(1).max(4000) });
 ttsRouter.get(
   '/status',
   asyncHandler(async (_req, res) => {
-    res.json({ configured: ttsConfigured(), sampleRate: env.PIPER_SAMPLE_RATE });
+    res.json({ configured: ttsConfigured(), sampleRate: TTS_SAMPLE_RATE });
   }),
 );
 

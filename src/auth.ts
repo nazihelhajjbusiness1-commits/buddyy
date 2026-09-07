@@ -1,7 +1,6 @@
 import './style.css';
 import { ApiError, forgotPassword, login, register, resetPassword, verifyEmail } from './lib/api';
-
-declare const lucide: { createIcons: () => void };
+import { refreshIcons } from './lib/icons';
 
 type View = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
@@ -173,7 +172,7 @@ async function runVerify(): Promise<void> {
     icon.classList.toggle('border-danger/40', !ok);
     title.textContent = heading;
     msg.textContent = text;
-    lucide.createIcons();
+    refreshIcons();
   };
 
   if (!token) {
@@ -201,7 +200,7 @@ function wirePasswordToggles(): void {
         ? '<i data-lucide="eye" class="w-4 h-4"></i>'
         : '<i data-lucide="eye-off" class="w-4 h-4"></i>';
       btn.setAttribute('aria-label', revealed ? 'Show password' : 'Hide password');
-      lucide.createIcons();
+      refreshIcons();
     });
   });
 }
@@ -264,7 +263,7 @@ function init(): void {
   showView(initial);
   if (initial === 'verify') void runVerify();
 
-  lucide.createIcons();
+  refreshIcons();
 }
 
 document.addEventListener('DOMContentLoaded', init);

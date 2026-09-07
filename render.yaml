@@ -27,6 +27,17 @@ services:
         sync: false # e.g. https://buddyy.vercel.app
       - key: GEMINI_API_KEY
         sync: false
+      # Spatius talking avatar (renders client-side; keys stay server-side).
+      - key: SPATIUS_API_KEY
+        sync: false
+      - key: SPATIUS_APP_ID
+        sync: false
+      - key: SPATIUS_AVATAR_ID
+        sync: false
+      # Google Cloud Text-to-Speech — the voice fed to the Spatius avatar.
+      # Cloud API key with "Cloud Text-to-Speech API" enabled (not the AI Studio key).
+      - key: GOOGLE_TTS_API_KEY
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM

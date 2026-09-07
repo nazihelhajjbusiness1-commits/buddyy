@@ -3,14 +3,13 @@ generator client {
 }
 
 datasource db {
-  // Dev uses SQLite. For production, switch to PostgreSQL:
-  //   1. provider = "postgresql"
-  //   2. DATABASE_URL="postgresql://user:pass@host:5432/buddyy?schema=public"
-  //   3. npx prisma migrate deploy   (or `prisma db push`)
-  // Relational data works as-is. For real vector search at scale, enable the
-  // pgvector extension and migrate Chunk.embedding to a `vector` column + ANN
-  // index (see README → "Scaling to Postgres + pgvector").
-  provider = "sqlite"
+  // PostgreSQL for dev and production. Set DATABASE_URL, e.g.:
+  //   DATABASE_URL="postgresql://user:pass@host:5432/buddyy?schema=public"
+  // Sync the schema with:  npx prisma db push  (or `prisma migrate` for history).
+  // For real vector search at scale, enable the pgvector extension and migrate
+  // Chunk.embedding to a `vector` column + ANN index (see README → "Scaling to
+  // Postgres + pgvector").
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

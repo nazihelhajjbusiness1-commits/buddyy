@@ -1,8 +1,10 @@
 import './style.css';
-import { createClient } from '@anam-ai/js-sdk';
-// Type-only import: erased at build time, so the heavy avatarkit runtime bundle
-// is NOT pulled into the initial chunk. The actual module is loaded on demand
-// via dynamic import() inside connectSpatius() (Vite code-splits it).
+import { refreshIcons } from './lib/icons';
+// Type-only imports: erased at build time, so these heavy runtime bundles are
+// NOT pulled into the initial chunk. The actual modules are loaded on demand
+// via dynamic import() when the avatar is connected (Vite code-splits them).
+// @anam-ai/js-sdk in particular drags in ~3.5MB of Opus audio workers, so it
+// must stay out of the first paint (loaded on demand in connectAvatar()).
 import type { AvatarController } from '@spatius/avatarkit';
 import {
   anamSessionToken,
@@ -40,12 +42,6 @@ interface AnamClient {
   stopStreaming?(): void;
 }
 
-/* ------------------------------------------------------------------ *
- * Lucide is loaded from a CDN <script> in index.html, so we declare
- * its shape for the type checker instead of importing it.
- * ------------------------------------------------------------------ */
-declare const lucide: { createIcons: () => void };
-
 /** Initial shown on the current user's avatar (set after auth). */
 let currentInitial = 'B';
 
@@ -58,10 +54,6 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`Missing required element #${id}`);
   return node as T;
-}
-
-function refreshIcons(): void {
-  lucide.createIcons();
 }
 
 /* ------------------------------ Sources --------------------------- */
@@ -363,6 +355,9 @@ async function connectAvatar(): Promise<void> {
   try {
     setStatus('Connecting avatar…');
     const { sessionToken } = await anamSessionToken();
+    // Lazy-load the ANAM SDK (and its heavy Opus audio workers) only when the
+    // user actually connects the avatar — keeps it out of the initial bundle.
+    const { createClient } = await import('@anam-ai/js-sdk');
     // disableInputAudio: we drive speech ourselves; no microphone capture needed.
     const client = createClient(sessionToken, { disableInputAudio: true }) as unknown as AnamClient;
     await client.streamToVideoElement('anamVideo');
@@ -622,9 +617,11 @@ async function toggleCam(): Promise<void> {
     video.srcObject = camStream;
     void video.play().catch(() => undefined);
     prevFrame = null;
-    motionTimer = window.setInterval(detectMotion, 220);
+    // Frame-differencing is cheap (32×24). Object detection (COCO-SSD) is the
+    // expensive one, so it runs less often. Both pause while the tab is hidden.
+    motionTimer = window.setInterval(detectMotion, 300);
     void ensureDetector().catch(() => undefined);
-    detectTimer = window.setInterval(() => void runDetection(), 900);
+    detectTimer = window.setInterval(() => void runDetection(), 1500);
   } else {
     camOn = false;
     if (motionTimer) window.clearInterval(motionTimer);
@@ -650,6 +647,7 @@ async function toggleCam(): Promise<void> {
 
 // Frame-difference motion estimate from the webcam (all in-browser).
 function detectMotion(): void {
+  if (document.hidden) return; // don't burn CPU on a backgrounded tab
   const video = el<HTMLVideoElement>('camVideo');
   if (video.readyState < 2) return;
   const canvas = el<HTMLCanvasElement>('camCanvas');
@@ -685,7 +683,7 @@ async function ensureDetector(): Promise<import('@tensorflow-models/coco-ssd').O
 
 // Detect whether a phone is visible in the webcam frame.
 async function runDetection(): Promise<void> {
-  if (detecting || !camOn) return;
+  if (detecting || !camOn || document.hidden) return;
   const video = el<HTMLVideoElement>('camVideo');
   if (video.readyState < 2) return;
   const model = detector ?? (await ensureDetector());
@@ -789,6 +787,125 @@ function maybeNudge(message?: string): void {
     setSpeaking(true);
     window.setTimeout(() => setSpeaking(false), 2500);
   }
+}
+
+/* --------------------- Study timer (Pomodoro etc.) ---------------- */
+type TimerPhase = 'focus' | 'break';
+
+// Each technique is a { focus, break } pair in minutes.
+const TIMER_MODES: Record<string, { focus: number; break: number }> = {
+  '25-5': { focus: 25, break: 5 }, // classic Pomodoro
+  '50-10': { focus: 50, break: 10 }, // deep work
+  '90-20': { focus: 90, break: 20 }, // ultradian rhythm
+};
+
+let timerModeKey = '25-5';
+let timerPhase: TimerPhase = 'focus';
+let timerRemaining = TIMER_MODES[timerModeKey].focus * 60; // seconds
+let timerRunning = false;
+let timerTick: number | undefined;
+let timerSessions = 0; // completed focus blocks
+
+const timerTotal = (): number => TIMER_MODES[timerModeKey][timerPhase] * 60;
+
+function fmtClock(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+function renderTimer(): void {
+  el('timerDisplay').textContent = fmtClock(Math.max(0, timerRemaining));
+  el('timerBar').style.width = `${(Math.max(0, timerRemaining) / timerTotal()) * 100}%`;
+
+  const focusing = timerPhase === 'focus';
+  const phaseEl = el('timerPhase');
+  phaseEl.textContent = focusing ? 'Focus' : 'Break';
+  phaseEl.className = `text-[11px] font-600 uppercase tracking-wide mb-1 ${focusing ? 'text-primary' : 'text-success'}`;
+  el('timerBar').className = `h-full transition-all duration-500 ${focusing ? 'bg-primary' : 'bg-success'}`;
+
+  el('timerCount').textContent = `${timerSessions} session${timerSessions === 1 ? '' : 's'} completed`;
+  el('timerToggle').innerHTML = timerRunning
+    ? '<i data-lucide="pause" class="w-3.5 h-3.5"></i> Pause'
+    : '<i data-lucide="play" class="w-3.5 h-3.5"></i> Start';
+  refreshIcons();
+}
+
+function timerStopTick(): void {
+  if (timerTick !== undefined) {
+    window.clearInterval(timerTick);
+    timerTick = undefined;
+  }
+}
+
+// A short sine "ding" so the phase change is noticeable without an asset file.
+function timerChime(focusNext: boolean): void {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = focusNext ? 660 : 520;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.6);
+    osc.onended = () => void ctx.close().catch(() => undefined);
+  } catch {
+    /* audio blocked — silent is fine */
+  }
+}
+
+function timerAdvancePhase(): void {
+  if (timerPhase === 'focus') {
+    timerSessions += 1;
+    timerPhase = 'break';
+    setStatus(`Great focus session — take a ${TIMER_MODES[timerModeKey].break}-minute break.`);
+    timerChime(false);
+  } else {
+    timerPhase = 'focus';
+    setStatus("Break's over — let's get back to it.");
+    timerChime(true);
+  }
+  timerRemaining = timerTotal();
+}
+
+function timerToggle(): void {
+  if (timerRunning) {
+    timerRunning = false;
+    timerStopTick();
+  } else {
+    timerRunning = true;
+    timerTick = window.setInterval(() => {
+      timerRemaining -= 1;
+      if (timerRemaining <= 0) timerAdvancePhase();
+      renderTimer();
+    }, 1000);
+  }
+  renderTimer();
+}
+
+function timerReset(): void {
+  timerRunning = false;
+  timerStopTick();
+  timerPhase = 'focus';
+  timerRemaining = timerTotal();
+  renderTimer();
+}
+
+function initStudyTimer(): void {
+  const modeSel = el<HTMLSelectElement>('timerMode');
+  modeSel.addEventListener('change', () => {
+    if (TIMER_MODES[modeSel.value]) {
+      timerModeKey = modeSel.value;
+      timerReset();
+    }
+  });
+  el('timerToggle').addEventListener('click', timerToggle);
+  el('timerReset').addEventListener('click', timerReset);
+  renderTimer();
 }
 
 /* --------------------------- Notebooks ---------------------------- */
@@ -1067,6 +1184,7 @@ async function init(): Promise<void> {
 
   setSpeaking(false);
   startFocusLoop();
+  initStudyTimer();
   refreshIcons();
 }
 

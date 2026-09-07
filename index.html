@@ -7,49 +7,86 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Crimson+Pro:wght@400;500;600&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
-<script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        fontFamily: {
-          sans: ['DM Sans', 'sans-serif'],
-          display: ['Space Grotesk', 'sans-serif'],
-          serif: ['Crimson Pro', 'serif'],
-        },
-        colors: {
-          bg:        '#F6F5FB',
-          surface:   '#FFFFFF',
-          surface2:  '#F1EEF9',
-          border:    '#E5E1F0',
-          primary:   '#7C3AED',
-          secondary: '#6366F1',
-          accent:    '#DB2777',
-          fg:        '#211E33',
-          muted:     '#6E6A85',
-          success:   '#059669',
-          warn:      '#D97706',
-          danger:    '#DC2626',
-        },
-      },
-    },
-  };
-</script>
 </head>
 <body class="font-sans text-fg antialiased">
 
-<div class="h-screen w-screen relative overflow-hidden bg-bg">
+<div class="h-screen w-screen relative overflow-hidden bg-bg flex flex-col lg:flex-row">
 
-  <!-- ================= AVATAR STAGE ================= -->
-  <!-- dark ambient background keeps the glass overlays legible -->
-  <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#191627] via-[#141122] to-[#0E0C17]"></div>
-  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 w-[520px] h-[520px] max-w-[90vw] rounded-full bg-primary/20 blur-[120px] pointer-events-none"></div>
+  <!-- ================= LEFT: LECTURE / SOURCES (always visible on desktop) ================= -->
+  <div id="sidebarBackdrop" class="hidden absolute inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"></div>
+  <aside id="sidebar" class="absolute lg:static inset-y-0 left-0 z-50 w-80 max-w-[85vw] shrink-0 bg-surface lg:border-r border-border flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out">
+    <div class="p-4 pb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <h2 class="font-display font-600 text-sm tracking-wide uppercase text-muted">Sources</h2>
+        <span id="sourceCount" class="text-xs text-muted bg-surface2 px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <button id="sidebarClose" class="lg:hidden p-2 rounded-lg hover:bg-surface2 text-muted" aria-label="Close sources"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
 
-  <!-- avatar shown at its optimal size, centered (no full-screen upscaling) -->
-  <div class="absolute inset-0 z-0 grid place-items-center px-4 pt-16 pb-52">
-    <div id="avatarWrap" class="relative w-full max-w-[380px] aspect-[3/4] max-h-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
+    <div class="px-4">
+      <input id="fileInput" type="file" multiple class="hidden" accept=".pdf,.doc,.docx,.txt,.md,text/plain,application/pdf" />
+      <select id="sourceType" class="w-full mb-2 bg-surface2 border border-border rounded-lg text-xs px-2 py-2 text-fg focus:border-primary/60" aria-label="Source type">
+        <option value="lecture">Lecture</option>
+        <option value="book">Book</option>
+        <option value="article">Article</option>
+        <option value="homework">Homework</option>
+        <option value="exam">Exam</option>
+        <option value="other">Other</option>
+      </select>
+      <button id="addSourceBtn" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20">
+        <i data-lucide="plus" class="w-4 h-4"></i> Add source
+      </button>
+      <p class="text-[11px] text-muted mt-2 text-center">PDF · DOCX · TXT · MD</p>
+    </div>
+
+    <label class="flex items-center gap-2 px-4 mt-4 text-xs text-muted cursor-pointer select-none">
+      <input id="selectAll" type="checkbox" checked class="accent-primary w-3.5 h-3.5" /> Select all sources
+    </label>
+
+    <ul id="sourceList" class="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5">
+      <!-- source items injected by main.ts -->
+    </ul>
+
+    <!-- ================= STUDY TIMER (Pomodoro & focus techniques) ================= -->
+    <div class="shrink-0 border-t border-border px-4 py-3">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="font-display font-600 text-sm tracking-wide uppercase text-muted flex items-center gap-1.5">
+          <i data-lucide="timer" class="w-3.5 h-3.5"></i> Study timer
+        </h2>
+        <select id="timerMode" class="bg-surface2 border border-border rounded-lg text-[11px] px-1.5 py-1 text-fg focus:border-primary/60" aria-label="Study technique">
+          <option value="25-5">Pomodoro · 25/5</option>
+          <option value="50-10">Deep Work · 50/10</option>
+          <option value="90-20">Ultradian · 90/20</option>
+        </select>
+      </div>
+
+      <div class="rounded-xl bg-surface2 border border-border p-3 text-center">
+        <div id="timerPhase" class="text-[11px] font-600 uppercase tracking-wide mb-1 text-primary">Focus</div>
+        <div id="timerDisplay" class="font-display font-700 text-3xl tabular-nums text-fg">25:00</div>
+        <div class="mt-2 h-1.5 rounded-full bg-border overflow-hidden">
+          <div id="timerBar" class="h-full transition-all duration-500 bg-primary" style="width:100%"></div>
+        </div>
+        <div class="flex items-center justify-center gap-2 mt-3">
+          <button id="timerToggle" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-600 hover:bg-primary/90 transition">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i> Start
+          </button>
+          <button id="timerReset" class="p-1.5 rounded-lg text-muted hover:bg-surface hover:text-fg transition" aria-label="Reset timer">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <p id="timerCount" class="text-[11px] text-muted mt-2">0 sessions completed</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MIDDLE: AVATAR STAGE (full-bleed, no borders) ================= -->
+  <main class="relative flex-1 min-w-0 overflow-hidden order-first lg:order-none">
+    <!-- dark ambient background keeps the glass overlays legible -->
+    <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#191627] via-[#141122] to-[#0E0C17]"></div>
+    <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 w-[520px] h-[520px] max-w-[90vw] rounded-full bg-primary/20 blur-[120px] pointer-events-none"></div>
+
+    <!-- avatar fills the whole middle stage, edge to edge, no frame -->
+    <div id="avatarWrap" class="absolute inset-0 z-0 overflow-hidden">
       <div id="anamMount" class="absolute inset-0 grid place-items-center overflow-hidden bg-[#1C1927]">
         <video id="anamVideo" class="absolute inset-0 w-full h-full object-cover hidden" autoplay playsinline></video>
         <div class="relative flex flex-col items-center gap-3">
@@ -58,52 +95,64 @@
         </div>
       </div>
       <!-- Spatius renders its 3D avatar canvas into this container -->
-      <div id="spatiusMount" class="absolute inset-0 hidden overflow-hidden rounded-[inherit]"></div>
+      <div id="spatiusMount" class="absolute inset-0 hidden overflow-hidden"></div>
       <div class="speak-glow"></div>
       <button id="avatarConnectBtn" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-600 shadow-lg shadow-primary/30">
         Start avatar
       </button>
     </div>
-  </div>
 
-  <!-- bottom scrim for control legibility -->
-  <div class="absolute inset-x-0 bottom-0 h-72 z-10 bg-gradient-to-t from-black/55 to-transparent pointer-events-none"></div>
+    <!-- top scrim for header legibility -->
+    <div class="absolute inset-x-0 top-0 h-28 z-10 bg-gradient-to-b from-black/45 to-transparent pointer-events-none"></div>
 
-  <!-- ================= TOP BAR ================= -->
-  <header class="absolute top-0 inset-x-0 z-30 flex items-center gap-3 px-4 h-14 text-white">
-    <button id="sidebarToggle" class="w-10 h-10 grid place-items-center rounded-xl bg-white/10 backdrop-blur border border-white/15 hover:bg-white/20 transition" aria-label="Open sources">
-      <i data-lucide="panel-left" class="w-5 h-5"></i>
-    </button>
-    <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-lg shadow-primary/30">
-        <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+    <!-- ================= TOP BAR (overlays the avatar) ================= -->
+    <header class="absolute top-0 inset-x-0 z-30 flex items-center gap-3 px-4 h-14 text-white">
+      <button id="sidebarToggle" class="lg:hidden w-10 h-10 grid place-items-center rounded-xl bg-white/10 backdrop-blur border border-white/15 hover:bg-white/20 transition" aria-label="Open sources">
+        <i data-lucide="panel-left" class="w-5 h-5"></i>
+      </button>
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-lg shadow-primary/30">
+          <i data-lucide="graduation-cap" class="w-5 h-5 text-white"></i>
+        </div>
+        <span class="font-display font-700 text-lg tracking-tight hidden sm:block">Buddyy</span>
       </div>
-      <span class="font-display font-700 text-lg tracking-tight hidden sm:block">Buddyy</span>
-    </div>
-    <button id="notebookTitle" class="hidden md:block text-sm text-white/75 hover:text-white truncate max-w-[220px]">My Study Notebook</button>
+      <button id="notebookTitle" class="hidden md:block text-sm text-white/75 hover:text-white truncate max-w-[220px]">My Study Notebook</button>
 
-    <div class="ml-auto flex items-center gap-2">
-      <div id="pillFocus" class="flex items-center gap-1.5 text-xs font-500 px-2.5 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15">
-        <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-        <span id="focusLabel">Focused</span>
-      </div>
-      <div class="relative">
-        <button id="userMenuBtn" class="w-9 h-9 rounded-full bg-gradient-to-br from-secondary to-primary grid place-items-center text-sm font-600 text-white border border-white/15" title="Account" aria-haspopup="true" aria-expanded="false">B</button>
-        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-surface border border-border rounded-xl shadow-2xl shadow-black/20 p-2 z-40 text-fg">
-          <div class="px-3 py-2">
-            <p id="userMenuName" class="text-sm font-600 truncate">—</p>
-            <p id="userMenuEmail" class="text-xs text-muted truncate">—</p>
+      <div class="ml-auto flex items-center gap-2">
+        <div id="pillFocus" class="flex items-center gap-1.5 text-xs font-500 px-2.5 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15">
+          <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+          <span id="focusLabel">Focused</span>
+        </div>
+        <div class="relative">
+          <button id="userMenuBtn" class="w-9 h-9 rounded-full bg-gradient-to-br from-secondary to-primary grid place-items-center text-sm font-600 text-white border border-white/15" title="Account" aria-haspopup="true" aria-expanded="false">B</button>
+          <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-surface border border-border rounded-xl shadow-2xl shadow-black/20 p-2 z-40 text-fg">
+            <div class="px-3 py-2">
+              <p id="userMenuName" class="text-sm font-600 truncate">—</p>
+              <p id="userMenuEmail" class="text-xs text-muted truncate">—</p>
+            </div>
+            <hr class="border-border my-1" />
+            <button id="logoutBtn" class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-surface2 text-danger transition-colors">
+              <i data-lucide="log-out" class="w-4 h-4"></i> Log out
+            </button>
           </div>
-          <hr class="border-border my-1" />
-          <button id="logoutBtn" class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-surface2 text-danger transition-colors">
-            <i data-lucide="log-out" class="w-4 h-4"></i> Log out
-          </button>
         </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <!-- ================= FOCUS MONITOR (top-right, when mic/cam on) ================= -->
+    <!-- avatar status pinned to the bottom-center of the stage -->
+    <div class="absolute inset-x-0 bottom-0 z-20 pt-16 pb-5 bg-gradient-to-t from-black/55 to-transparent pointer-events-none">
+      <div class="flex items-center justify-center gap-2">
+        <div id="speakBadge" class="flex items-end gap-0.5 h-4">
+          <span class="vbar w-0.5 h-3 bg-primary rounded-full"></span>
+          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.15s"></span>
+          <span class="vbar w-0.5 h-3 bg-accent rounded-full" style="animation-delay:.3s"></span>
+          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.45s"></span>
+        </div>
+        <p id="avatarStatus" class="text-xs text-white/85">Ready to help you study.</p>
+      </div>
+    </div>
+
+    <!-- ================= FOCUS MONITOR (top-right, when mic/cam on) ================= -->
   <div id="monitorDock" class="hidden absolute top-16 right-4 z-30 w-60 space-y-2 text-white">
     <div id="micPanel" class="hidden rounded-xl bg-black/40 backdrop-blur border border-white/10 p-3">
       <div class="flex items-center gap-2 text-xs font-600 mb-2"><i data-lucide="mic" class="w-4 h-4 text-primary"></i> Listening</div>
@@ -134,36 +183,32 @@
     </div>
   </div>
 
-  <!-- ================= BOTTOM: transcript + prompt + controls ================= -->
-  <div class="absolute inset-x-0 bottom-0 z-30 px-4 pb-4 pt-2">
-    <div class="max-w-2xl mx-auto">
+  </main>
 
-      <!-- status -->
-      <div class="flex items-center justify-center gap-2 mb-2">
-        <div id="speakBadge" class="flex items-end gap-0.5 h-4">
-          <span class="vbar w-0.5 h-3 bg-primary rounded-full"></span>
-          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.15s"></span>
-          <span class="vbar w-0.5 h-3 bg-accent rounded-full" style="animation-delay:.3s"></span>
-          <span class="vbar w-0.5 h-3 bg-secondary rounded-full" style="animation-delay:.45s"></span>
-        </div>
-        <p id="avatarStatus" class="text-xs text-white/85">Ready to help you study.</p>
-      </div>
+  <!-- ================= RIGHT: CHAT PANEL (always visible on desktop) ================= -->
+  <section id="chatPanel" class="relative z-30 flex flex-col shrink-0 w-full h-[46vh] lg:h-auto lg:w-[400px] bg-[#161327] border-t lg:border-t-0 lg:border-l border-white/10 text-white">
+    <div class="flex items-center gap-2 px-4 h-14 shrink-0 border-b border-white/10">
+      <div class="w-7 h-7 rounded-lg bg-white/10 grid place-items-center"><i data-lucide="messages-square" class="w-4 h-4 text-primary"></i></div>
+      <h2 class="font-display font-600 text-sm">Chat</h2>
+    </div>
 
-      <!-- transcript -->
-      <div id="chatLog" class="max-h-[30vh] overflow-y-auto space-y-3 mb-3 pr-1">
-        <!-- messages injected by main.ts -->
-      </div>
+    <!-- transcript -->
+    <div id="chatLog" class="flex-1 min-h-0 overflow-y-auto space-y-3 px-4 py-4">
+      <!-- messages injected by main.ts -->
+    </div>
 
+    <!-- composer: prompts + prompt bar + call controls -->
+    <div class="shrink-0 px-4 pt-3 pb-4 border-t border-white/10">
       <!-- suggested prompts -->
-      <div class="flex flex-wrap gap-2 justify-center mb-2.5">
-        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Summarize my sources</button>
-        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Make a study guide</button>
-        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 backdrop-blur border border-white/15 text-white hover:bg-white/20 transition">Quiz me</button>
+      <div class="flex flex-wrap gap-2 mb-2.5">
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 transition">Summarize my sources</button>
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 transition">Make a study guide</button>
+        <button class="quick-prompt text-xs px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white hover:bg-white/20 transition">Quiz me</button>
       </div>
 
       <!-- prompt bar -->
       <form id="chatForm">
-        <div class="flex items-end gap-2 bg-white/12 backdrop-blur-xl border border-white/20 rounded-2xl px-3 py-2.5 shadow-2xl shadow-black/30">
+        <div class="flex items-end gap-2 bg-white/12 border border-white/20 rounded-2xl px-3 py-2.5">
           <button type="button" class="p-1.5 rounded-lg text-white/70 hover:text-white" aria-label="Attach"><i data-lucide="paperclip" class="w-4 h-4"></i></button>
           <textarea id="chatInput" rows="1" placeholder="Ask anything about your sources…" class="flex-1 bg-transparent resize-none text-sm text-white placeholder:text-white/55 max-h-32 py-1.5 focus:outline-none"></textarea>
           <button type="submit" class="w-9 h-9 shrink-0 rounded-xl bg-primary grid place-items-center hover:bg-primary/90 transition-colors" aria-label="Send">
@@ -174,10 +219,10 @@
 
       <!-- call controls -->
       <div class="flex items-center justify-center gap-3 mt-3">
-        <button id="micBtn" class="w-12 h-12 rounded-full bg-white/10 backdrop-blur border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle microphone">
+        <button id="micBtn" class="w-12 h-12 rounded-full bg-white/10 border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle microphone">
           <i data-lucide="mic-off" class="w-5 h-5 text-white/70"></i>
         </button>
-        <button id="camBtn" class="w-12 h-12 rounded-full bg-white/10 backdrop-blur border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle camera">
+        <button id="camBtn" class="w-12 h-12 rounded-full bg-white/10 border border-white/15 grid place-items-center hover:bg-white/20 transition" aria-pressed="false" aria-label="Toggle camera">
           <i data-lucide="video-off" class="w-5 h-5 text-white/70"></i>
         </button>
         <button id="speakBtn" class="w-12 h-12 rounded-full bg-primary grid place-items-center hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30" aria-label="Mute avatar voice">
@@ -185,43 +230,7 @@
         </button>
       </div>
     </div>
-  </div>
-
-  <!-- ================= SOURCES DRAWER ================= -->
-  <div id="sidebarBackdrop" class="hidden absolute inset-0 z-40 bg-black/40 backdrop-blur-sm"></div>
-  <aside id="sidebar" class="absolute inset-y-0 left-0 z-50 w-80 max-w-[85vw] bg-surface border-r border-border flex flex-col -translate-x-full transition-transform duration-300 ease-out">
-    <div class="p-4 pb-3 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <h2 class="font-display font-600 text-sm tracking-wide uppercase text-muted">Sources</h2>
-        <span id="sourceCount" class="text-xs text-muted bg-surface2 px-2 py-0.5 rounded-full">0</span>
-      </div>
-      <button id="sidebarClose" class="p-2 rounded-lg hover:bg-surface2 text-muted" aria-label="Close sources"><i data-lucide="x" class="w-4 h-4"></i></button>
-    </div>
-
-    <div class="px-4">
-      <input id="fileInput" type="file" multiple class="hidden" accept=".pdf,.doc,.docx,.txt,.md,text/plain,application/pdf" />
-      <select id="sourceType" class="w-full mb-2 bg-surface2 border border-border rounded-lg text-xs px-2 py-2 text-fg focus:border-primary/60" aria-label="Source type">
-        <option value="lecture">Lecture</option>
-        <option value="book">Book</option>
-        <option value="article">Article</option>
-        <option value="homework">Homework</option>
-        <option value="exam">Exam</option>
-        <option value="other">Other</option>
-      </select>
-      <button id="addSourceBtn" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-600 transition-colors shadow-lg shadow-primary/20">
-        <i data-lucide="plus" class="w-4 h-4"></i> Add source
-      </button>
-      <p class="text-[11px] text-muted mt-2 text-center">PDF · DOCX · TXT · MD</p>
-    </div>
-
-    <label class="flex items-center gap-2 px-4 mt-4 text-xs text-muted cursor-pointer select-none">
-      <input id="selectAll" type="checkbox" checked class="accent-primary w-3.5 h-3.5" /> Select all sources
-    </label>
-
-    <ul id="sourceList" class="flex-1 min-h-0 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5">
-      <!-- source items injected by main.ts -->
-    </ul>
-  </aside>
+  </section>
 
 </div>
 

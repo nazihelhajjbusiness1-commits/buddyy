@@ -1,8 +1,10 @@
-import { spawn } from 'node:child_process';
 import { env } from '../config/env';
 import { HttpError } from '../utils/httpError';
 
-export const ttsConfigured = (): boolean => Boolean(env.PIPER_BIN && env.PIPER_MODEL);
+/** Gemini TTS always returns signed 16-bit little-endian mono PCM at 24kHz. */
+export const TTS_SAMPLE_RATE = 24000;
+
+export const ttsConfigured = (): boolean => Boolean(env.GEMINI_API_KEY);
 
 export interface TtsResult {
   pcm: Buffer; // raw signed 16-bit little-endian mono PCM
@@ -10,35 +12,45 @@ export interface TtsResult {
 }
 
 /**
- * Synthesizes speech with a local Piper voice. `--output-raw` streams raw int16
- * mono PCM on stdout at the model's sample rate (set PIPER_SAMPLE_RATE to match).
+ * Synthesizes speech with Google Gemini's native TTS models (free AI Studio
+ * tier — same key as chat/embeddings, no card, no separate Cloud project). The
+ * model returns raw PCM16 mono at 24kHz inline (mimeType `audio/L16;rate=24000`),
+ * which is exactly what the Spatius avatar consumes — no container to strip.
  */
-export function synthesizePcm(text: string): Promise<TtsResult> {
-  if (!env.PIPER_BIN || !env.PIPER_MODEL) {
-    return Promise.reject(new HttpError(503, 'TTS not configured. Set PIPER_BIN and PIPER_MODEL.'));
+export async function synthesizePcm(text: string): Promise<TtsResult> {
+  if (!env.GEMINI_API_KEY) {
+    return Promise.reject(new HttpError(503, 'TTS not configured. Set GEMINI_API_KEY.'));
   }
 
-  return new Promise<TtsResult>((resolve, reject) => {
-    const proc = spawn(env.PIPER_BIN as string, ['--model', env.PIPER_MODEL as string, '--output-raw'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+  const model = `models/${env.GEMINI_TTS_MODEL}`;
+  const res = await fetch(
+    `${env.GEMINI_BASE_URL}/${model}:generateContent?key=${env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: env.GEMINI_TTS_VOICE } },
+          },
+        },
+      }),
+    },
+  );
 
-    const chunks: Buffer[] = [];
-    let stderr = '';
-    proc.stdout.on('data', (d: Buffer) => chunks.push(d));
-    proc.stderr.on('data', (d: Buffer) => {
-      stderr += d.toString();
-    });
-    proc.on('error', (e) => reject(new HttpError(500, `Piper failed to start: ${e.message}`)));
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        reject(new HttpError(500, `Piper exited ${code}: ${stderr.slice(0, 200)}`));
-        return;
-      }
-      resolve({ pcm: Buffer.concat(chunks), sampleRate: env.PIPER_SAMPLE_RATE });
-    });
+  if (!res.ok) {
+    throw new HttpError(502, `Gemini TTS error ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
 
-    proc.stdin.write(text);
-    proc.stdin.end();
-  });
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { inlineData?: { data?: string } }[] } }[];
+  };
+  const b64 = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!b64) {
+    throw new HttpError(502, 'Gemini TTS returned no audio.');
+  }
+
+  return { pcm: Buffer.from(b64, 'base64'), sampleRate: TTS_SAMPLE_RATE };
 }
