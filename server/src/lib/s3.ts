@@ -49,7 +49,11 @@ function encodePath(path: string): string {
 function resolve(cfg: S3Config, key: string): { url: string; host: string; canonicalPath: string } {
   if (cfg.endpoint) {
     const u = new URL(cfg.endpoint);
-    const canonicalPath = `/${cfg.bucket}/${key}`;
+    // Preserve any base path in the endpoint (e.g. Supabase's
+    // "/storage/v1/s3") — it must appear in both the request URL and the
+    // SigV4 canonical path or the signature won't match.
+    const basePath = u.pathname.replace(/\/+$/, '');
+    const canonicalPath = `${basePath}/${cfg.bucket}/${key}`;
     return { url: `${u.origin}${encodePath(canonicalPath)}`, host: u.host, canonicalPath };
   }
   const host = `${cfg.bucket}.s3.${cfg.region}.amazonaws.com`;
