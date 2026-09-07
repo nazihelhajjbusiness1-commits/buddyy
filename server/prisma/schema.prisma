@@ -3,14 +3,21 @@ generator client {
 }
 
 datasource db {
-  // PostgreSQL for dev and production. Set DATABASE_URL, e.g.:
-  //   DATABASE_URL="postgresql://user:pass@host:5432/buddyy?schema=public"
+  // PostgreSQL for dev and production.
+  //
+  // Supabase note: the app runtime connects through the *transaction pooler*
+  // (port 6543, add `?pgbouncer=true`), but Prisma migrations / `db push` need a
+  // *direct/session* connection (port 5432) because pgbouncer's transaction mode
+  // doesn't support the advisory locks + prepared statements migrations use.
+  //   DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres?pgbouncer=true"
+  //   DIRECT_URL="postgresql://...pooler.supabase.com:5432/postgres"
   // Sync the schema with:  npx prisma db push  (or `prisma migrate` for history).
   // For real vector search at scale, enable the pgvector extension and migrate
   // Chunk.embedding to a `vector` column + ANN index (see README → "Scaling to
   // Postgres + pgvector").
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

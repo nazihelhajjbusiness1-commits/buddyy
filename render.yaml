@@ -16,10 +16,13 @@ services:
         value: "4000"
       - key: COOKIE_SECURE
         value: "true"
-      # Supabase Postgres (free). Paste the pooler connection string (port 6543)
-      # in the Render dashboard — kept out of git.
+      # Supabase Postgres (free). Runtime uses the TRANSACTION pooler (6543,
+      # add ?pgbouncer=true); migrations use the SESSION pooler (5432) via
+      # DIRECT_URL. Both set in the dashboard — kept out of git.
       - key: DATABASE_URL
-        sync: false
+        sync: false # ...pooler.supabase.com:6543/postgres?pgbouncer=true
+      - key: DIRECT_URL
+        sync: false # ...pooler.supabase.com:5432/postgres
       - key: ACCESS_TOKEN_SECRET
         generateValue: true # Render generates a strong secret
       # Fill these in the dashboard (or add here) — they are left blank on purpose:
