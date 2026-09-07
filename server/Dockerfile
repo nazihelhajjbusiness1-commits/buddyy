@@ -28,6 +28,7 @@ COPY --from=build /app/dist ./dist
 COPY prisma ./prisma
 
 EXPOSE 4000
-# Apply migrations at boot, then start. (Use `prisma db push` if you have no
-# migration history yet.)
-CMD ["sh", "-c", "npx prisma migrate deploy || npx prisma db push; node dist/index.js"]
+# Sync the DB schema at boot, then start. `db push` is used because there is no
+# migration history yet; swap to `prisma migrate deploy` once you add migrations.
+# Needs DIRECT_URL (session pooler) — pgbouncer's transaction pooler can't run it.
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/index.js"]
