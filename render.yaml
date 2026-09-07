@@ -7,6 +7,7 @@ services:
     runtime: docker
     rootDir: server
     dockerfilePath: ./Dockerfile
+    region: frankfurt # co-located with Supabase (eu-central-1) to cut DB latency
     plan: free # free tier spins down after 15 min idle; upgrade to "starter" for always-on
     healthCheckPath: /api/health
     envVars:

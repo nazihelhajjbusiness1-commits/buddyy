@@ -17,9 +17,7 @@ export interface TtsResult {
  * free tier. We retry with backoff, and fall back across models so a spike on
  * one model can be served by another. The configured model is tried first.
  */
-const TTS_MODELS = [
-  ...new Set([env.GEMINI_TTS_MODEL, 'gemini-3.1-flash-tts-preview', 'gemini-2.5-pro-preview-tts']),
-];
+const TTS_MODELS = [...new Set([env.GEMINI_TTS_MODEL, 'gemini-3.1-flash-tts-preview'])];
 /** Google statuses worth retrying (transient capacity / rate limits). */
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 
@@ -78,10 +76,11 @@ export async function synthesizePcm(text: string): Promise<TtsResult> {
   }
 
   let lastTransient: TtsTransientError | null = null;
-  // Try each model, retrying transient (503/429/…) failures with backoff before
-  // moving to the next model. A hard error (auth/bad request) throws immediately.
+  // Favor speed: one quick retry per model, then fall back to the next model.
+  // A hard error (auth/bad request) throws immediately. Worst case ~4 calls with
+  // a single short backoff, keeping the avatar responsive during 503 spikes.
   for (const modelName of TTS_MODELS) {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const pcm = await callGeminiTts(modelName, text);
         return { pcm, sampleRate: TTS_SAMPLE_RATE };
@@ -93,7 +92,7 @@ export async function synthesizePcm(text: string): Promise<TtsResult> {
           attempt: attempt + 1,
           status: err.status,
         });
-        if (attempt < 2) await sleep(400 * 2 ** attempt); // 400ms, 800ms
+        if (attempt < 1) await sleep(250); // one short retry, then next model
       }
     }
   }
