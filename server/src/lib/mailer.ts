@@ -2,32 +2,43 @@ import { env } from '../config/env';
 import { logger } from './logger';
 
 /**
+ * Splits a MAIL_FROM value like `"Buddyy <no-reply@buddyy.app>"` (or a bare
+ * address) into the { name, email } shape Brevo's API expects.
+ */
+function parseFrom(from: string): { email: string; name?: string } {
+  const match = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (match) return { name: match[1] || undefined, email: match[2].trim() };
+  return { email: from.trim() };
+}
+
+/**
  * Transactional email.
  *
- * - If RESEND_API_KEY is set, sends via the Resend HTTP API (no SDK dependency —
- *   just a fetch). Works with any Resend account; set MAIL_FROM to a verified
- *   sender/domain. Swapping to SES/Postmark later is a one-function change.
+ * - If BREVO_API_KEY is set, sends via the Brevo HTTP API (no SDK dependency —
+ *   just a fetch). MAIL_FROM must use a sender address verified in your Brevo
+ *   account. Swapping to SES/Postmark later is a one-function change.
  * - Otherwise (development) it logs the message to the console so you can grab
  *   verification / reset links locally.
  */
 export async function sendMail(to: string, subject: string, body: string): Promise<void> {
-  if (env.RESEND_API_KEY) {
-    const res = await fetch('https://api.resend.com/emails', {
+  if (env.BREVO_API_KEY) {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'api-key': env.BREVO_API_KEY,
         'Content-Type': 'application/json',
+        accept: 'application/json',
       },
       body: JSON.stringify({
-        from: env.MAIL_FROM,
-        to,
+        sender: parseFrom(env.MAIL_FROM),
+        to: [{ email: to }],
         subject,
         // `body` is plain text/links today; wrap so it renders in HTML clients.
-        html: `<div style="font-family:system-ui,sans-serif;line-height:1.5">${body.replace(
+        htmlContent: `<div style="font-family:system-ui,sans-serif;line-height:1.5">${body.replace(
           /\n/g,
           '<br>',
         )}</div>`,
-        text: body,
+        textContent: body,
       }),
     });
 

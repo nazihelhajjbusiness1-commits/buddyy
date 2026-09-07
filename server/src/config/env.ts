@@ -28,11 +28,12 @@ const schema = z.object({
   // reported. Left as a string here so the app runs without the dependency.
   SENTRY_DSN: z.string().optional(),
 
-  // --- Transactional email (Resend HTTP API, no dependency required) ---
-  // When RESEND_API_KEY is set and NODE_ENV=production, verification / reset
-  // emails are actually sent; otherwise they are logged to the console (dev).
-  RESEND_API_KEY: z.string().optional(),
-  MAIL_FROM: z.string().default('Buddyy <onboarding@resend.dev>'),
+  // --- Transactional email (Brevo HTTP API, no dependency required) ---
+  // When BREVO_API_KEY is set, verification / reset emails are actually sent;
+  // otherwise they are logged to the console (dev). MAIL_FROM must use a sender
+  // address verified in your Brevo account (Senders, Domains & Dedicated IPs).
+  BREVO_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().default('Buddyy <no-reply@example.com>'),
 
   // --- File storage backend ---
   // "local" = disk (dev default). "s3" = any S3-compatible bucket (AWS S3,
