@@ -472,18 +472,39 @@ function createSpatiusSpeaker() {
   let buffer = '';
   const queue: string[] = [];
   let draining = false;
+  let finished = false; // stream ended; no more sentences will be enqueued
+  let sentAny = false; // at least one audio clip was sent
+  let endSent = false; // the round was closed with end=true
 
+  // IMPORTANT: send(pcm, end). `end=true` finalizes the conversation round, so
+  // intermediate sentences MUST be sent with end=false — otherwise each clip
+  // ends (and the next one restarts) the round, making speech choppy. Only the
+  // final clip carries end=true.
   async function drain(): Promise<void> {
     if (draining) return;
     draining = true;
     while (queue.length > 0) {
       const sentence = queue.shift()!;
+      const isLast = finished && queue.length === 0;
       try {
         const pcm = await ttsSpeak(sentence);
-        spatiusController?.send(pcm, true);
+        spatiusController?.send(pcm, isLast);
+        sentAny = true;
+        if (isLast) endSent = true;
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn('TTS/speak failed:', (err as Error).message);
+      }
+    }
+    // If TTS outpaced the token stream, the last real clip may have gone out as
+    // non-final. Close the round with an empty end marker so state resets and the
+    // next message starts fresh.
+    if (finished && sentAny && !endSent) {
+      try {
+        spatiusController?.send(new ArrayBuffer(0), true);
+        endSent = true;
+      } catch {
+        /* best-effort round close */
       }
     }
     draining = false;
@@ -515,11 +536,13 @@ function createSpatiusSpeaker() {
       }
       buffer = buffer.slice(lastEnd);
     },
-    /** Flush whatever text remains once the stream ends. */
+    /** Flush whatever text remains once the stream ends, and close the round. */
     end(): void {
       if (!spatiusController) return;
       if (buffer.trim()) enqueue(buffer);
       buffer = '';
+      finished = true;
+      void drain(); // ensures the final clip is sent with end=true (or EOS marker)
     },
   };
 }
