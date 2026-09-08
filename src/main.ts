@@ -292,6 +292,8 @@ async function sendMessage(): Promise<void> {
   const ids = selectedReadySourceIds();
   // Have the avatar speak the streamed answer, if it's connected and unmuted.
   const talk = anamClient && voiceOn ? anamClient.createTalkMessageStream() : null;
+  // Spatius speaks incrementally, one sentence at a time, as tokens stream in.
+  const spatiusSpeaker = avatarProvider === 'spatius' ? createSpatiusSpeaker() : null;
 
   let citations: Citation[] = [];
   let full = '';
@@ -317,6 +319,7 @@ async function sendMessage(): Promise<void> {
         const target = ensureBubble();
         target.innerHTML = formatAnswer(full, citations);
         talk?.streamMessageChunk(text, false);
+        spatiusSpeaker?.push(text);
         log.scrollTop = log.scrollHeight;
       },
       onError: (message) => {
@@ -324,7 +327,7 @@ async function sendMessage(): Promise<void> {
       },
     });
     talk?.endMessage();
-    if (avatarProvider === 'spatius' && full.trim()) void speakSpatius(full);
+    spatiusSpeaker?.end();
   } catch (err) {
     document.getElementById('typing')?.remove();
     if (!contentEl) {
@@ -460,8 +463,69 @@ async function connectSpatius(appId: string, avatarId: string): Promise<void> {
   }
 }
 
-// Speak text through Piper TTS → Spatius avatar (PCM16 fed to controller.send).
-async function speakSpatius(text: string): Promise<void> {
+// Streams the assistant's answer to the Spatius avatar sentence-by-sentence as
+// it arrives, so the avatar starts talking after the first sentence instead of
+// waiting for the whole reply. Sentences are synthesized one at a time and sent
+// in order; the avatar buffers/plays each clip while the next is generated,
+// giving early, smooth, in-sync speech.
+function createSpatiusSpeaker() {
+  let buffer = '';
+  const queue: string[] = [];
+  let draining = false;
+
+  async function drain(): Promise<void> {
+    if (draining) return;
+    draining = true;
+    while (queue.length > 0) {
+      const sentence = queue.shift()!;
+      try {
+        const pcm = await ttsSpeak(sentence);
+        spatiusController?.send(pcm, true);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('TTS/speak failed:', (err as Error).message);
+      }
+    }
+    draining = false;
+  }
+
+  function enqueue(text: string): void {
+    const sentence = text.trim();
+    if (!sentence) return;
+    queue.push(sentence);
+    void drain();
+  }
+
+  // A sentence ends at . ! ? (followed by whitespace/end) or a newline. The
+  // whitespace lookahead avoids splitting decimals/abbreviations mid-number.
+  const BOUNDARY = /[.!?]+(?=\s|$)|\n+/g;
+
+  return {
+    /** Feed a streamed text chunk; flushes any newly-complete sentences. */
+    push(chunk: string): void {
+      if (!spatiusController) return;
+      buffer += chunk;
+      let lastEnd = 0;
+      let m: RegExpExecArray | null;
+      BOUNDARY.lastIndex = 0;
+      while ((m = BOUNDARY.exec(buffer)) !== null) {
+        const end = m.index + m[0].length;
+        enqueue(buffer.slice(lastEnd, end));
+        lastEnd = end;
+      }
+      buffer = buffer.slice(lastEnd);
+    },
+    /** Flush whatever text remains once the stream ends. */
+    end(): void {
+      if (!spatiusController) return;
+      if (buffer.trim()) enqueue(buffer);
+      buffer = '';
+    },
+  };
+}
+
+// One-off speak for short avatar prompts (e.g. focus nudges) — no streaming.
+async function speakSpatiusOnce(text: string): Promise<void> {
   if (!spatiusController) return;
   try {
     const pcm = await ttsSpeak(text);
@@ -782,7 +846,7 @@ function maybeNudge(message?: string): void {
     setSpeaking(true);
     window.setTimeout(() => setSpeaking(false), 3000);
   } else if (voiceOn && avatarProvider === 'spatius' && spatiusController) {
-    void speakSpatius(msg); // onConversationState drives the speaking glow
+    void speakSpatiusOnce(msg); // onConversationState drives the speaking glow
   } else if (voiceOn) {
     setSpeaking(true);
     window.setTimeout(() => setSpeaking(false), 2500);
